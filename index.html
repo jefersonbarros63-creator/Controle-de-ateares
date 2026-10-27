@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#123b35">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>Controle dos Teares</title>
+<style>
+:root{--green:#123b35;--green2:#1e6558;--bg:#f3f6f5;--card:#fff;--text:#182522;--muted:#62716d;--red:#b42318;--amber:#946200;--line:#dce5e1}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px system-ui,-apple-system,Segoe UI,sans-serif}
+header{background:var(--green);color:white;padding:22px 16px 18px}header h1{margin:0;font-size:23px}header p{margin:5px 0 0;color:#d6e9e4;font-size:14px}
+main{max-width:760px;margin:auto;padding:14px; padding-bottom:40px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}.stat,.panel,.loom{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}.stat b{display:block;font-size:24px}.stat span{font-size:12px;color:var(--muted)}
+h2{font-size:18px;margin:4px 0 12px}.panel{margin-bottom:14px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:1}button,input,select{font:inherit;border-radius:10px;border:1px solid #cbd8d3;padding:11px;background:white;color:var(--text);min-width:0}button{cursor:pointer;font-weight:650}button.primary{background:var(--green2);color:white;border-color:var(--green2)}button.danger{color:var(--red);background:#fff6f5;border-color:#f0c8c4}button.small{padding:7px 9px;font-size:13px}.muted{color:var(--muted);font-size:13px}.fileira{margin:14px 0}.fileira h3{font-size:14px;color:var(--muted);margin:0 0 8px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.loom{padding:10px}.loom-top{display:flex;justify-content:space-between;gap:6px;align-items:center;margin-bottom:7px}.loom-name{font-weight:750}.pill{font-size:11px;border-radius:20px;padding:4px 7px;background:#e5f4eb;color:#17663c;white-space:nowrap}.pill.stop{background:#fde8e7;color:#a32219}.pill.attn{background:#fff0ce;color:#855800}.loom p{margin:4px 0 8px;font-size:12px;color:var(--muted);min-height:16px}.loom button{width:100%;padding:8px;font-size:13px}.issue{border-top:1px solid var(--line);padding:12px 0}.issue:first-child{border-top:0}.issue strong{display:block}.issue small{color:var(--muted)}.issue-actions{display:flex;gap:7px;margin-top:8px}.issue-actions button{flex:1}.empty{color:var(--muted);font-size:14px;padding:10px 0}.hidden{display:none!important}label{font-size:13px;font-weight:650;display:block;margin:0 0 5px} .field{margin-bottom:10px}.footer{text-align:center;color:var(--muted);font-size:12px;padding:10px}
+@media(min-width:600px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<header><h1>Controle dos Teares</h1><p>15 máquinas · patrulha · ocorrências do turno</p></header>
+<main>
+<div class="stats">
+ <div class="stat"><b id="countStopped">0</b><span>Precisam de atenção</span></div>
+ <div class="stat"><b id="countTrama">0</b><span>Quebras de trama abertas</span></div>
+ <div class="stat"><b id="countDone">0</b><span>Resolvidas no turno</span></div>
+</div>
+<section class="panel">
+<h2>Registrar ocorrência</h2>
+<form id="issueForm">
+ <div class="field"><label for="loomSelect">Número do tear</label><select id="loomSelect"></select></div>
+ <div class="field"><label for="problem">Problema</label><select id="problem"><option>Quebra de trama</option><option>Fio rompido</option><option>Falta de fio</option><option>Outro</option></select></div>
+ <div class="field"><label for="notes">Observação (opcional)</label><input id="notes" maxlength="100" placeholder="Ex.: lado esquerdo, posição..."></div>
+ <button class="primary" type="submit" style="width:100%">Registrar problema</button>
+ <p class="muted">Quebra de trama aparece como prioridade principal.</p>
+</form>
+</section>
+<section class="panel">
+<div class="row"><h2 style="margin-right:auto">Mapa dos teares</h2><button class="small" id="editRows">Editar fileiras</button></div>
+<p class="muted">Os números abaixo são provisórios. Edite para colocar a numeração real da fábrica.</p>
+<div id="rowEditor" class="hidden">
+ <p class="muted">Digite os números dos teares de cada fileira, separados por vírgula. Use os 15 números reais, sem repetir.</p>
+ <div id="rowInputs"></div><button class="primary" id="saveRows" type="button" style="width:100%;margin-top:8px">Salvar mapa</button>
+</div>
+<div id="loomMap"></div>
+</section>
+<section class="panel">
+<div class="row"><h2 style="margin-right:auto">Ocorrências abertas</h2><button class="small" id="copyOpen">Copiar lista</button></div>
+<div id="openIssues"></div>
+</section>
+<section class="panel">
+<div class="row"><h2 style="margin-right:auto">Histórico resolvido</h2><button class="small danger" id="clearHistory">Limpar histórico</button></div>
+<div id="history"></div>
+</section>
+<div class="row">
+<button id="exportBtn">Exportar resumo</button><button id="resetBtn" class="danger">Novo turno</button>
+</div>
+<p class="footer">Os dados ficam salvos neste navegador e neste aparelho. Exporte o resumo antes de limpar os dados.</p>
+</main>
+<script>
+const defaultRows=[["Tear 1","Tear 2","Tear 3","Tear 4"],["Tear 5","Tear 6","Tear 7","Tear 8"],["Tear 9","Tear 10","Tear 11","Tear 12"],["Tear 13","Tear 14","Tear 15"]];
+let rows=load("loomRows",defaultRows), issues=load("loomIssues",[]);
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function save(){localStorage.setItem("loomRows",JSON.stringify(rows));localStorage.setItem("loomIssues",JSON.stringify(issues))}
+function allLooms(){return rows.flat()}
+function timeNow(){return new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function populateSelect(){const s=document.getElementById("loomSelect"),old=s.value;s.innerHTML=allLooms().map(n=>`<option>${esc(n)}</option>`).join("");if(allLooms().includes(old))s.value=old}
+function render(){
+ populateSelect();
+ const open=issues.filter(x=>!x.done),done=issues.filter(x=>x.done);
+ document.getElementById("countStopped").textContent=new Set(open.map(x=>x.loom)).size;
+ document.getElementById("countTrama").textContent=open.filter(x=>x.problem==="Quebra de trama").length;
+ document.getElementById("countDone").textContent=done.length;
+ const map=document.getElementById("loomMap");map.innerHTML="";
+ rows.forEach((r,i)=>{const section=document.createElement("div");section.className="fileira";section.innerHTML=`<h3>FILEIRA ${i+1} · ${r.length} TEARES</h3><div class="grid">${r.map(n=>{const op=open.filter(x=>x.loom===n);const trama=op.some(x=>x.problem==="Quebra de trama");const p=op.length?op.map(x=>x.problem).join(", "):"Sem ocorrência aberta";return `<div class="loom"><div class="loom-top"><span class="loom-name">${esc(n)}</span><span class="pill ${trama?'stop':op.length?'attn':''}">${trama?'TRAMA':op.length?'ATENÇÃO':'RODANDO'}</span></div><p>${esc(p)}</p><button data-loom="${esc(n)}" class="quick">Registrar problema</button></div>`}).join("")}</div>`;map.appendChild(section)});
+ document.querySelectorAll(".quick").forEach(b=>b.onclick=()=>{document.getElementById("loomSelect").value=b.dataset.loom;document.getElementById("problem").focus();window.scrollTo({top:0,behavior:"smooth"})});
+ const sorted=[...open].sort((a,b)=>(a.problem==="Quebra de trama"?0:1)-(b.problem==="Quebra de trama"?0:1)||b.created-a.created);
+ const oi=document.getElementById("openIssues");oi.innerHTML=sorted.length?sorted.map(x=>`<div class="issue"><strong>${esc(x.loom)} — ${esc(x.problem)}</strong><small>${esc(x.time)}${x.notes?' · '+esc(x.notes):''}</small><div class="issue-actions"><button class="primary" data-done="${x.id}">Marcar resolvido</button><button class="small" data-delete="${x.id}">Excluir</button></div></div>`).join(""):'<div class="empty">Nenhuma ocorrência aberta. Tudo certo por aqui!</div>';
+ oi.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{const x=issues.find(i=>i.id==b.dataset.done);if(x){x.done=true;x.closed=timeNow();save();render()}});
+ oi.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>{issues=issues.filter(i=>i.id!=b.dataset.delete);save();render()});
+ const hist=document.getElementById("history");hist.innerHTML=done.length?[...done].reverse().slice(0,30).map(x=>`<div class="issue"><strong>✓ ${esc(x.loom)} — ${esc(x.problem)}</strong><small>${esc(x.time)} · Resolvido ${esc(x.closed||"")}</small></div>`).join(""):'<div class="empty">As ocorrências resolvidas aparecerão aqui.</div>';
+}
+document.getElementById("issueForm").onsubmit=e=>{e.preventDefault();issues.push({id:Date.now(),loom:document.getElementById("loomSelect").value,problem:document.getElementById("problem").value,notes:document.getElementById("notes").value.trim(),time:timeNow(),created:Date.now(),done:false});document.getElementById("notes").value="";save();render()};
+document.getElementById("editRows").onclick=()=>{const el=document.getElementById("rowEditor");el.classList.toggle("hidden");document.getElementById("rowInputs").innerHTML=rows.map((r,i)=>`<div class="field"><label>Fileira ${i+1}</label><input id="row${i}" value="${esc(r.join(", "))}"></div>`).join("")};
+document.getElementById("saveRows").onclick=()=>{const next=rows.map((r,i)=>document.getElementById("row"+i).value.split(",").map(x=>x.trim()).filter(Boolean));if(next.some(r=>!r.length)||next.flat().length!==15||new Set(next.flat()).size!==15){alert("Confira o mapa: precisa ter exatamente 15 nomes/números, sem repetição, e nenhuma fileira vazia.");return}rows=next;save();document.getElementById("rowEditor").classList.add("hidden");render()};
+document.getElementById("copyOpen").onclick=()=>{const arr=issues.filter(x=>!x.done).sort((a,b)=>(a.problem==="Quebra de trama"?0:1)-(b.problem==="Quebra de trama"?0:1));const s=arr.length?arr.map(x=>`${x.loom} | ${x.problem} | ${x.time}${x.notes?' | '+x.notes:''}`).join("\n"):"Nenhuma ocorrência aberta.";copyText(s)};
+document.getElementById("exportBtn").onclick=()=>{const s="CONTROLE DOS TEARES\n"+new Date().toLocaleDateString("pt-BR")+"\n\nMAPA\n"+rows.map((r,i)=>`Fileira ${i+1}: ${r.join(", ")}`).join("\n")+"\n\nOCORRÊNCIAS\n"+(issues.length?issues.map(x=>`${x.done?"RESOLVIDO":"ABERTO"} | ${x.loom} | ${x.problem} | ${x.time}${x.notes?' | '+x.notes:''}${x.closed?' | Resolvido '+x.closed:''}`).join("\n"):"Nenhuma ocorrência registrada.");copyText(s)};
+function copyText(s){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(s).then(()=>alert("Resumo copiado. Você pode colar nas suas anotações." )).catch(()=>window.prompt("Copie o texto abaixo:",s))}else window.prompt("Copie o texto abaixo:",s)}
+document.getElementById("clearHistory").onclick=()=>{if(confirm("Apagar todas as ocorrências resolvidas?")){issues=issues.filter(x=>!x.done);save();render()}};
+document.getElementById("resetBtn").onclick=()=>{if(confirm("Começar um novo turno? Isso apagará todas as ocorrências registradas, mas manterá o mapa dos teares.")){issues=[];save();render()}};
+render();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
